@@ -16,7 +16,6 @@
 
         <activity
             android:name="vadiole.uiswitch.MainActivity"
-            android:configChanges="uiMode"
             android:exported="true"
             android:launchMode="singleTask">
 

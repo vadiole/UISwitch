@@ -2,17 +2,15 @@ package vadiole.uiswitch
 
 import android.app.Activity
 import android.content.res.Configuration
-import android.graphics.Color
 import android.os.Bundle
-import android.util.TypedValue
 import android.view.Gravity
 import android.widget.FrameLayout
-import android.widget.TextView
 import androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowCompat.setDecorFitsSystemWindows
 import androidx.core.view.WindowInsetsCompat.Type.navigationBars
 import androidx.core.view.WindowInsetsCompat.Type.statusBars
+import vadiole.uiswitch.control.UISwitch
 
 class MainActivity : Activity(), ResourcesOwner {
 
@@ -27,21 +25,21 @@ class MainActivity : Activity(), ResourcesOwner {
             insets
         }
 
+        val context = this
+
         setContentView(
-            TextView(this).apply {
-                layoutParams = FrameLayout.LayoutParams(matchParent, matchParent)
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, 14f.dp)
-                gravity = Gravity.CENTER
-                setTextColor(Color.GRAY)
-                text = "UISwitch by vadiole"
+            FrameLayout(context).apply {
+                addView(
+                    UISwitch(context).apply {
+                        layoutParams = FrameLayout.LayoutParams(
+                            wrapContent,
+                            wrapContent,
+                            Gravity.CENTER,
+                        )
+                    }
+                )
             }
         )
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        updateSystemBars(newConfig)
-        window.decorView.setBackgroundColor(getColor(R.color.windowBackground))
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

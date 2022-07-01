@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="windowBackground">#171717</color>
+    <color name="window_background">#171717</color>
+    <color name="green_primary">#32D74B</color>
 </resources>
