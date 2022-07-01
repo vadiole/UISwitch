@@ -2,4 +2,5 @@
 <resources>
     <color name="window_background">#FFFFFF</color>
     <color name="green_primary">#34C759</color>
+    <color name="white">#FFFFFF</color>
 </resources>

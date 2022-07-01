@@ -3,6 +3,8 @@ package vadiole.uiswitch.control
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
 import vadiole.uiswitch.R
@@ -16,9 +18,19 @@ class UISwitch @JvmOverloads constructor(
     private val trackDrawable = context.getDrawable(R.drawable.switch_track)!!.apply {
         setTint(context.getColor(R.color.green_primary))
     }
+    private val thumbPath = Path()
+    private val thumbPaint = Paint().apply {
+        color = context.getColor(R.color.white)
+        style = Paint.Style.FILL
+        isAntiAlias = true
+    }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         trackDrawable.setBounds(0, 0, w, h)
+        thumbPath.apply {
+            rewind()
+            addCircle(h / 2f, h / 2f, 13.5f.dp, Path.Direction.CW)
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -30,5 +42,6 @@ class UISwitch @JvmOverloads constructor(
     @SuppressLint("MissingSuperCall")
     override fun draw(canvas: Canvas) {
         trackDrawable.draw(canvas)
+        canvas.drawPath(thumbPath, thumbPaint)
     }
 }
