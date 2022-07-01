@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
 import android.util.AttributeSet
 import android.view.View
 import vadiole.uiswitch.R
@@ -18,6 +19,17 @@ class UISwitch @JvmOverloads constructor(
         color = context.getColor(R.color.green_primary)
         isAntiAlias = true
     }
+    private val backgroundPath = Path()
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        backgroundPath.apply {
+            rewind()
+            addRoundRect(
+                0f, 0f, w.toFloat(), h.toFloat(),
+                15.5f.dp, 15.5f.dp, Path.Direction.CW
+            )
+        }
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthSpec = MeasureSpec.makeMeasureSpec(51.dp, MeasureSpec.EXACTLY)
@@ -27,6 +39,6 @@ class UISwitch @JvmOverloads constructor(
 
     @SuppressLint("MissingSuperCall")
     override fun draw(canvas: Canvas) {
-        canvas.drawPaint(backgroundPaint)
+        canvas.drawPath(backgroundPath, backgroundPaint)
     }
 }
