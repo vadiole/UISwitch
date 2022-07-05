@@ -36,6 +36,8 @@ class MainActivity : Activity(), ResourcesOwner {
                             wrapContent,
                             Gravity.CENTER,
                         )
+                        scaleX = 5f
+                        scaleY = 5f
                     }
                 )
             }

@@ -20,9 +20,14 @@ class UISwitch @JvmOverloads constructor(
     }
     private val thumbPath = Path()
     private val thumbPaint = Paint().apply {
+        setShadowLayer(7f.dp, 0f, 3f.dp, context.getColor(R.color.shadow))
         color = context.getColor(R.color.white)
         style = Paint.Style.FILL
         isAntiAlias = true
+    }
+
+    init {
+        setLayerType(LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
