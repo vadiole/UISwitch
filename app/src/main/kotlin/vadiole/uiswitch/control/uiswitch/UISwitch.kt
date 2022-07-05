@@ -1,4 +1,4 @@
-package vadiole.uiswitch.control
+package vadiole.uiswitch.control.uiswitch
 
 import android.annotation.SuppressLint
 import android.content.Context

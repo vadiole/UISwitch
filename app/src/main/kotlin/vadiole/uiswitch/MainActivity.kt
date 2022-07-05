@@ -10,7 +10,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowCompat.setDecorFitsSystemWindows
 import androidx.core.view.WindowInsetsCompat.Type.navigationBars
 import androidx.core.view.WindowInsetsCompat.Type.statusBars
-import vadiole.uiswitch.control.UISwitch
+import vadiole.uiswitch.control.uiswitch.UISwitch
 
 class MainActivity : Activity(), ResourcesOwner {
 
