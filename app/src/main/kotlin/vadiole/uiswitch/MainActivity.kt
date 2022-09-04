@@ -2,9 +2,10 @@ package vadiole.uiswitch
 
 import android.app.Activity
 import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.Gravity
-import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowCompat.setDecorFitsSystemWindows
@@ -28,18 +29,54 @@ class MainActivity : Activity(), ResourcesOwner {
         val context = this
 
         setContentView(
-            FrameLayout(context).apply {
+            LinearLayout(context).apply {
+                setPadding(0, 40.dp, 0, 40.dp)
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                showDividers = LinearLayout.SHOW_DIVIDER_MIDDLE
+                dividerDrawable = object : ColorDrawable() {
+                    override fun getIntrinsicHeight(): Int {
+                        return 40.dp
+                    }
+                }
+                clipChildren = false
                 addView(
                     UISwitch(context).apply {
-                        layoutParams = FrameLayout.LayoutParams(
+                        layoutParams = LinearLayout.LayoutParams(
                             wrapContent,
                             wrapContent,
-                            Gravity.CENTER,
                         )
-                        scaleX = 5f
-                        scaleY = 5f
                     }
                 )
+                addView(
+                    UISwitch(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            wrapContent,
+                            wrapContent,
+                        )
+                    }
+                )
+                addView(
+                    UISwitch(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            wrapContent,
+                            wrapContent,
+                        )
+                        scaleX = 1f / 5f
+                        scaleY = 1f / 5f
+                    }
+                )
+                addView(
+                    UISwitch(context).apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            wrapContent,
+                            wrapContent,
+                        )
+                        scaleX = 1f / 5f
+                        scaleY = 1f / 5f
+                    }
+                )
+
             }
         )
     }
