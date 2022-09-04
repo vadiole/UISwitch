@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
     <style name="Theme.UISwitch" parent="android:Theme.NoTitleBar">
         <item name="android:windowBackground">@color/window_background</item>
         <item name="android:windowSplashscreenContent">@drawable/ic_launcher_splash</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-
-        <item name="android:colorPrimary">@color/green_primary</item>
+        <item name="android:colorPrimary">@color/track_checked</item>
     </style>
 </resources>
