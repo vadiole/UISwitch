@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="window_background">#FFFFFF</color>
-    <color name="track_checked">#34C759</color>
-    <color name="track_default">#E9E9EA</color>
+    <color name="track_checked">#FF34C759</color>
+    <color name="track_default">#29787880</color>
     <color name="white">#FFFFFF</color>
-    <color name="shadow">#1F000000</color>
+    <color name="shadow">#26000000</color>
 </resources>
