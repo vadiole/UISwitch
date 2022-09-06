@@ -116,6 +116,11 @@ class UISwitch @JvmOverloads constructor(
         checkedInternal = checked
     }
 
+    override fun setEnabled(enabled: Boolean) {
+        super.setEnabled(enabled)
+        alpha = if (isEnabled) 1f else 0.5f
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -189,8 +194,10 @@ class UISwitch @JvmOverloads constructor(
     }
 
     private fun cancelAllScheduledAnimations() {
-        handler.removeCallbacks(holdFromLeftEffect)
-        handler.removeCallbacks(holdFromRightEffect)
+        handler?.run {
+            removeCallbacks(holdFromLeftEffect)
+            removeCallbacks(holdFromRightEffect)
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

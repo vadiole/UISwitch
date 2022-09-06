@@ -74,6 +74,8 @@ class MainActivity : Activity(), ResourcesOwner {
                         )
                         scaleX = 1f / 5f
                         scaleY = 1f / 5f
+                        isEnabled = false
+                        isChecked = true
                     }
                 )
 
