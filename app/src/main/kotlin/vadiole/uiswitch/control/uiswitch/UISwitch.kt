@@ -13,6 +13,7 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.SoundEffectConstants
 import android.view.View
 import android.view.ViewConfiguration
 import android.widget.Checkable
@@ -121,6 +122,17 @@ class UISwitch @JvmOverloads constructor(
         alpha = if (isEnabled) 1f else 0.5f
     }
 
+    override fun performClick(): Boolean {
+        toggle()
+        val handled = super.performClick()
+        if (!handled) {
+            // View only makes a sound effect if the onClickListener was
+            // called, so we'll need to make one here instead.
+            playSoundEffect(SoundEffectConstants.CLICK)
+        }
+        return handled
+    }
+
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
@@ -156,17 +168,23 @@ class UISwitch @JvmOverloads constructor(
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                cancelAllScheduledAnimations()
                 when (touchMode) {
                     TouchModeIdle -> {}
                     TouchModeDown -> {
-                        cancelAllScheduledAnimations()
-                        toggle()
+                        performClick()
                         return true
                     }
                     TouchModeDragging -> {
-                        cancelAllScheduledAnimations()
-                        toggle()
-                        return true
+                        val isToggleDone = true
+
+                        if (isToggleDone) {
+                            toggle()
+                            playSoundEffect(SoundEffectConstants.CLICK)
+                            return true
+                        } else {
+                            isChecked = isChecked
+                        }
                     }
                 }
             }
