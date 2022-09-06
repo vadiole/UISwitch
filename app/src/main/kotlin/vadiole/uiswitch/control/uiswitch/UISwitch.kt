@@ -176,7 +176,10 @@ class UISwitch @JvmOverloads constructor(
                         return true
                     }
                     TouchModeDragging -> {
-                        val isToggleDone = true
+                        val dragBackThreshold = measuredWidth * DragBackThresholdPercent
+                        val isCancelledToLeft = !isChecked && event.x < -dragBackThreshold
+                        val isCancelledToRight = isChecked && event.x > measuredWidth + dragBackThreshold
+                        val isToggleDone = !isCancelledToLeft && !isCancelledToRight
 
                         if (isToggleDone) {
                             toggle()
@@ -300,19 +303,20 @@ class UISwitch @JvmOverloads constructor(
     class ThumpPosition(val right: Float, val left: Float)
 
     companion object {
+        private const val TouchModeIdle = 0
+        private const val TouchModeDown = 1
+        private const val TouchModeDragging = 2
+
         private const val Mult = 5
         private const val Width = 51 * Mult
         private const val Height = 31 * Mult
         private const val ThumbOffsetPercent = 0.0645f
-
-        private const val TouchModeIdle = 0
-        private const val TouchModeDown = 1
-        private const val TouchModeDragging = 2
 
         private const val HoldEffectAnimationDelay = 60L
         private const val SpringStiffness = 400f
         private const val SpringNoBounce = 1f
         private const val SpringBounceRatio = 0.8f
         private const val HoldEffectShift = 0.33f
+        private const val DragBackThresholdPercent = 0.5f
     }
 }
