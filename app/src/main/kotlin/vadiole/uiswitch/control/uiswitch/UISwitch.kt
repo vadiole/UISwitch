@@ -37,6 +37,7 @@ class UISwitch @JvmOverloads constructor(
     private var touchMode = TouchModeIdle
     private var touchX = 0f
     private var touchY = 0f
+    private var wasToggledByDragging = false
     private val config = ViewConfiguration.get(context)
     private val touchSlop = config.scaledTouchSlop
     private val minFlingVelocity = config.scaledMinimumFlingVelocity
@@ -87,18 +88,6 @@ class UISwitch @JvmOverloads constructor(
         springToPosition(thumbRightSpringAnimation, HoldEffectShift)
     }
     private var checkedInternal: Boolean = false
-        set(value) {
-            field = value
-            val targetPosition = if (value) 1f else 0f
-
-            if (isAttachedToWindow && isLaidOut) {
-                springToPosition(thumbRightSpringAnimation, targetPosition, bounce = true)
-                springToPosition(thumbLeftSpringAnimation, targetPosition, bounce = true)
-                springToPosition(trackTintAnimation, targetPosition)
-            } else {
-                snapToPosition(targetPosition)
-            }
-        }
 
     // 0f..1f
     private var thumbPosition = ThumpPosition(right = 0f, left = 0f)
@@ -110,11 +99,43 @@ class UISwitch @JvmOverloads constructor(
     override fun isChecked(): Boolean = checkedInternal
 
     override fun toggle() {
-        isChecked = !checkedInternal
+        isChecked = !isChecked
     }
 
     override fun setChecked(checked: Boolean) {
+        cancelAllScheduledAnimations()
         checkedInternal = checked
+        val targetPosition = if (checked) 1f else 0f
+
+        if (isAttachedToWindow && isLaidOut) {
+            springToPosition(thumbRightSpringAnimation, targetPosition, bounce = true)
+            springToPosition(thumbLeftSpringAnimation, targetPosition, bounce = true)
+            springToPosition(trackTintAnimation, targetPosition)
+        } else {
+            snapToPosition(targetPosition)
+        }
+    }
+
+    private fun setCheckedByDrag(checked: Boolean) {
+        cancelAllScheduledAnimations()
+        playSoundEffect(SoundEffectConstants.CLICK)
+        checkedInternal = checked
+        wasToggledByDragging = true
+        val targetPosition = if (checked) 1f else 0f
+        val tailTargetPosition = if (checked) 1 - HoldEffectShift else HoldEffectShift
+
+        if (isAttachedToWindow && isLaidOut) {
+            if (isChecked) {
+                springToPosition(thumbRightSpringAnimation, targetPosition, bounce = true)
+                springToPosition(thumbLeftSpringAnimation, tailTargetPosition, bounce = true)
+            } else {
+                springToPosition(thumbRightSpringAnimation, tailTargetPosition, bounce = true)
+                springToPosition(thumbLeftSpringAnimation, targetPosition, bounce = true)
+            }
+            springToPosition(trackTintAnimation, targetPosition)
+        } else {
+            snapToPosition(targetPosition)
+        }
     }
 
     override fun setEnabled(enabled: Boolean) {
@@ -163,6 +184,17 @@ class UISwitch @JvmOverloads constructor(
                         }
                     }
                     TouchModeDragging -> {
+                        if (isChecked) {
+                            val dragToggleThreshold = measuredWidth * (1 - DragToggleThresholdPercent)
+                            if (event.x < dragToggleThreshold) {
+                                setCheckedByDrag(false)
+                            }
+                        } else {
+                            val dragToggleThreshold = measuredWidth * DragToggleThresholdPercent
+                            if (event.x > dragToggleThreshold) {
+                                setCheckedByDrag(true)
+                            }
+                        }
                         return true
                     }
                 }
@@ -170,9 +202,10 @@ class UISwitch @JvmOverloads constructor(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 cancelAllScheduledAnimations()
                 when (touchMode) {
-                    TouchModeIdle -> {}
+                    TouchModeIdle -> Unit
                     TouchModeDown -> {
                         performClick()
+                        touchMode = TouchModeIdle
                         return true
                     }
                     TouchModeDragging -> {
@@ -181,13 +214,15 @@ class UISwitch @JvmOverloads constructor(
                         val isCancelledToRight = isChecked && event.x > measuredWidth + dragBackThreshold
                         val isToggleDone = !isCancelledToLeft && !isCancelledToRight
 
-                        if (isToggleDone) {
+                        if (isToggleDone && !wasToggledByDragging) {
+                            wasToggledByDragging = false
                             toggle()
                             playSoundEffect(SoundEffectConstants.CLICK)
-                            return true
                         } else {
                             isChecked = isChecked
                         }
+                        touchMode = TouchModeIdle
+                        return true
                     }
                 }
             }
@@ -208,7 +243,6 @@ class UISwitch @JvmOverloads constructor(
     private fun snapToPosition(position: Float) {
         thumbLeftSpringAnimation.cancel()
         thumbRightSpringAnimation.cancel()
-        cancelAllScheduledAnimations()
         thumbLeftPositionValueHolder.value = position
         thumbRightPositionValueHolder.value = position
         trackTintFractionValueHolder.value = position
@@ -318,5 +352,6 @@ class UISwitch @JvmOverloads constructor(
         private const val SpringBounceRatio = 0.8f
         private const val HoldEffectShift = 0.33f
         private const val DragBackThresholdPercent = 0.5f
+        private const val DragToggleThresholdPercent = 0.7f
     }
 }
