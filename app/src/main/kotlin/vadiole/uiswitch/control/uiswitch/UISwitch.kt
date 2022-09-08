@@ -11,6 +11,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import android.provider.Settings
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SoundEffectConstants
@@ -23,6 +24,7 @@ import androidx.dynamicanimation.animation.SpringForce
 import kotlin.math.abs
 import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 import vadiole.uiswitch.R
 import vadiole.uiswitch.ResourcesOwner
 
@@ -30,6 +32,7 @@ class UISwitch @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0,
+    private val scale: Float = 1f,
 ) : View(context, attrs, defStyle), ResourcesOwner, Checkable {
     private var thumbMin = 0f
     private var thumbMax = 0f
@@ -51,7 +54,6 @@ class UISwitch @JvmOverloads constructor(
         setTint(trackDefaultTint)
     }
     private val thumb = ThumbDrawable(thumbColor = thumbColor, shadowColor = thumbShadowColor)
-    private val minAnimVisibleChange = 1f / (resources.displayMetrics.density * (Width))
     private val thumbRightPositionValueHolder = object : FloatValueHolder() {
         override fun getValue(): Float = thumbPosition.right
         override fun setValue(value: Float) {
@@ -72,20 +74,14 @@ class UISwitch @JvmOverloads constructor(
             trackDrawable.setTint(currentColor)
         }
     }
-    private val thumbRightSpringAnimation = SpringAnimation(thumbRightPositionValueHolder).apply {
-        minimumVisibleChange = minAnimVisibleChange
-    }
-    private val thumbLeftSpringAnimation = SpringAnimation(thumbLeftPositionValueHolder).apply {
-        minimumVisibleChange = minAnimVisibleChange
-    }
-    private val trackTintAnimation = SpringAnimation(trackTintFractionValueHolder).apply {
-        minimumVisibleChange = minAnimVisibleChange
-    }
+    private val thumbRightAnimation = SpringAnimation(thumbRightPositionValueHolder)
+    private val thumbLeftAnimation = SpringAnimation(thumbLeftPositionValueHolder)
+    private val trackTintAnimation = SpringAnimation(trackTintFractionValueHolder)
     private val holdFromRightEffect = Runnable {
-        springToPosition(thumbLeftSpringAnimation, 1 - HoldEffectShift)
+        springToPosition(thumbLeftAnimation, 1 - HoldEffectShift)
     }
     private val holdFromLeftEffect = Runnable {
-        springToPosition(thumbRightSpringAnimation, HoldEffectShift)
+        springToPosition(thumbRightAnimation, HoldEffectShift)
     }
     private var checkedInternal: Boolean = false
 
@@ -108,8 +104,8 @@ class UISwitch @JvmOverloads constructor(
         val targetPosition = if (checked) 1f else 0f
 
         if (isAttachedToWindow && isLaidOut) {
-            springToPosition(thumbRightSpringAnimation, targetPosition, bounce = true)
-            springToPosition(thumbLeftSpringAnimation, targetPosition, bounce = true)
+            springToPosition(thumbRightAnimation, targetPosition, bounce = true)
+            springToPosition(thumbLeftAnimation, targetPosition, bounce = true)
             springToPosition(trackTintAnimation, targetPosition)
         } else {
             snapToPosition(targetPosition)
@@ -126,11 +122,11 @@ class UISwitch @JvmOverloads constructor(
 
         if (isAttachedToWindow && isLaidOut) {
             if (isChecked) {
-                springToPosition(thumbRightSpringAnimation, targetPosition, bounce = true)
-                springToPosition(thumbLeftSpringAnimation, tailTargetPosition, bounce = true)
+                springToPosition(thumbRightAnimation, targetPosition, bounce = true)
+                springToPosition(thumbLeftAnimation, tailTargetPosition, bounce = true)
             } else {
-                springToPosition(thumbRightSpringAnimation, tailTargetPosition, bounce = true)
-                springToPosition(thumbLeftSpringAnimation, targetPosition, bounce = true)
+                springToPosition(thumbRightAnimation, tailTargetPosition, bounce = true)
+                springToPosition(thumbLeftAnimation, targetPosition, bounce = true)
             }
             springToPosition(trackTintAnimation, targetPosition)
         } else {
@@ -162,9 +158,9 @@ class UISwitch @JvmOverloads constructor(
                     touchX = event.x
                     touchY = event.y
                     if (isChecked) {
-                        handler.postDelayed(holdFromRightEffect, HoldEffectAnimationDelay)
+                        handler.postDelayed(holdFromRightEffect, getHoldEffectAnimationDelay())
                     } else {
-                        handler.postDelayed(holdFromLeftEffect, HoldEffectAnimationDelay)
+                        handler.postDelayed(holdFromLeftEffect, getHoldEffectAnimationDelay())
                     }
                     return true
                 }
@@ -184,15 +180,14 @@ class UISwitch @JvmOverloads constructor(
                         }
                     }
                     TouchModeDragging -> {
+                        val dragToggleThreshold = getDragToggleThreshold(isChecked)
                         if (isChecked) {
-                            val dragToggleThreshold = measuredWidth * (1 - DragToggleThresholdPercent)
                             if (event.x < dragToggleThreshold) {
-                                setCheckedByDrag(false)
+                                setCheckedByDrag(!isChecked)
                             }
                         } else {
-                            val dragToggleThreshold = measuredWidth * DragToggleThresholdPercent
                             if (event.x > dragToggleThreshold) {
-                                setCheckedByDrag(true)
+                                setCheckedByDrag(!isChecked)
                             }
                         }
                         return true
@@ -233,16 +228,28 @@ class UISwitch @JvmOverloads constructor(
     private fun springToPosition(animation: SpringAnimation, position: Float, bounce: Boolean = false) {
         animation.apply {
             spring = SpringForce(position).apply {
-                stiffness = SpringStiffness
+                stiffness = getSpringStiffness()
                 dampingRatio = if (bounce) SpringBounceRatio else SpringNoBounce
             }
             start()
         }
     }
 
+    private fun getSpringStiffness(): Float {
+        return SpringStiffness / getSystemAnimationScale()
+    }
+
+    private fun getHoldEffectAnimationDelay(): Long {
+        return (HoldEffectAnimationDelay * getSystemAnimationScale()).roundToLong()
+    }
+
+    private fun getSystemAnimationScale(): Float {
+        return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    }
+
     private fun snapToPosition(position: Float) {
-        thumbLeftSpringAnimation.cancel()
-        thumbRightSpringAnimation.cancel()
+        thumbLeftAnimation.cancel()
+        thumbRightAnimation.cancel()
         thumbLeftPositionValueHolder.value = position
         thumbRightPositionValueHolder.value = position
         trackTintFractionValueHolder.value = position
@@ -255,9 +262,14 @@ class UISwitch @JvmOverloads constructor(
         }
     }
 
+    private fun getDragToggleThreshold(isChecked: Boolean): Float {
+        val percent = if (isChecked) (1 - DragToggleThresholdPercent) else DragToggleThresholdPercent
+        return measuredWidth * percent
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val widthSpec = MeasureSpec.makeMeasureSpec(Width.dp, MeasureSpec.EXACTLY)
-        val heightSpec = MeasureSpec.makeMeasureSpec(Height.dp, MeasureSpec.EXACTLY)
+        val widthSpec = MeasureSpec.makeMeasureSpec((scale * Width.dp).roundToInt(), MeasureSpec.EXACTLY)
+        val heightSpec = MeasureSpec.makeMeasureSpec((scale * Height.dp).roundToInt(), MeasureSpec.EXACTLY)
         super.onMeasure(widthSpec, heightSpec)
     }
 
@@ -268,11 +280,19 @@ class UISwitch @JvmOverloads constructor(
         thumbMin = thumbOffset + thumbRadius
         thumbMax = w - thumbOffset - thumbRadius
         invalidateThumbBounds()
+        invalidateSpringMinVisibleChange()
+    }
+
+    private fun invalidateSpringMinVisibleChange() {
+        val minChange = 1f / (thumbMax - thumbMin)
+        thumbLeftAnimation.minimumVisibleChange = minChange
+        thumbRightAnimation.minimumVisibleChange = minChange
+        trackTintAnimation.minimumVisibleChange = 1f / 256f
     }
 
     private fun invalidateThumbBounds() {
-        val thumbCenterLeftX = thumbMin + (thumbMax - thumbMin) * thumbPosition.left
-        val thumbCenterRightX = thumbMin + (thumbMax - thumbMin) * thumbPosition.right
+        val thumbCenterLeftX = getThumbCenterPosition(fraction = thumbPosition.left)
+        val thumbCenterRightX = getThumbCenterPosition(fraction = thumbPosition.right)
         val thumbCenterY = measuredHeight / 2f
         val thumbLeft = (thumbCenterLeftX - thumbRadius).roundToInt()
         val thumbRight = (thumbCenterRightX + thumbRadius).roundToInt()
@@ -282,23 +302,39 @@ class UISwitch @JvmOverloads constructor(
         invalidate()
     }
 
+    private fun getThumbCenterPosition(fraction: Float): Float {
+        return thumbMin + (thumbMax - thumbMin) * fraction
+    }
+
     @SuppressLint("MissingSuperCall")
     override fun draw(canvas: Canvas) {
         trackDrawable.draw(canvas)
         thumb.draw(canvas)
-//        drawDebug(canvas)
+        drawDebug(canvas)
     }
 
     private val debugPaint = Paint().apply {
-        style = Paint.Style.STROKE
         color = Color.GREEN
         strokeWidth = 1f
         isAntiAlias = true
     }
 
+    private val debugPaintGray = Paint().apply {
+        color = Color.GRAY
+        strokeWidth = 0f
+        isAntiAlias = true
+    }
+
     private fun drawDebug(canvas: Canvas) {
-        canvas.drawLine(thumbMin, 0f, thumbMin, measuredHeight.toFloat(), debugPaint)
-        canvas.drawLine(thumbMax, 0f, thumbMax, measuredHeight.toFloat(), debugPaint)
+        canvas.drawLine(thumbMin, 0f, thumbMin, measuredHeight.toFloat(), debugPaintGray)
+        canvas.drawLine(thumbMax, 0f, thumbMax, measuredHeight.toFloat(), debugPaintGray)
+        val dragToggleThreshold = getDragToggleThreshold(isChecked)
+        canvas.drawLine(dragToggleThreshold, 0f, dragToggleThreshold, measuredHeight.toFloat(), debugPaint)
+        val thumbCenterLeftX = getThumbCenterPosition(fraction = thumbPosition.left)
+        val thumbCenterRightX = getThumbCenterPosition(fraction = thumbPosition.right)
+        val thumbCenterY = measuredHeight / 2f
+        canvas.drawCircle(thumbCenterLeftX, thumbCenterY, 2f.dp, debugPaint)
+        canvas.drawCircle(thumbCenterRightX, thumbCenterY, 2f.dp, debugPaint)
     }
 
     class ThumbDrawable(thumbColor: Int, private val shadowColor: Int) : Drawable() {
@@ -341,7 +377,7 @@ class UISwitch @JvmOverloads constructor(
         private const val TouchModeDown = 1
         private const val TouchModeDragging = 2
 
-        private const val Mult = 5
+        private const val Mult = 1
         private const val Width = 51 * Mult
         private const val Height = 31 * Mult
         private const val ThumbOffsetPercent = 0.0645f
@@ -349,9 +385,9 @@ class UISwitch @JvmOverloads constructor(
         private const val HoldEffectAnimationDelay = 60L
         private const val SpringStiffness = 400f
         private const val SpringNoBounce = 1f
-        private const val SpringBounceRatio = 0.8f
+        private const val SpringBounceRatio = 0.75f
         private const val HoldEffectShift = 0.33f
         private const val DragBackThresholdPercent = 0.5f
-        private const val DragToggleThresholdPercent = 0.7f
+        private const val DragToggleThresholdPercent = 0.6f
     }
 }

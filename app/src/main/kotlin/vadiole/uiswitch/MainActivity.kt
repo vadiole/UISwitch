@@ -32,7 +32,7 @@ class MainActivity : Activity(), ResourcesOwner {
             LinearLayout(context).apply {
                 setPadding(0, 40.dp, 0, 40.dp)
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
+                gravity = Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM
                 showDividers = LinearLayout.SHOW_DIVIDER_MIDDLE
                 dividerDrawable = object : ColorDrawable() {
                     override fun getIntrinsicHeight(): Int {
@@ -41,7 +41,7 @@ class MainActivity : Activity(), ResourcesOwner {
                 }
                 clipChildren = false
                 addView(
-                    UISwitch(context).apply {
+                    UISwitch(context, scale =  5f).apply {
                         layoutParams = LinearLayout.LayoutParams(
                             wrapContent,
                             wrapContent,
@@ -62,8 +62,6 @@ class MainActivity : Activity(), ResourcesOwner {
                             wrapContent,
                             wrapContent,
                         )
-                        scaleX = 1f / 5f
-                        scaleY = 1f / 5f
                     }
                 )
                 addView(
@@ -72,8 +70,6 @@ class MainActivity : Activity(), ResourcesOwner {
                             wrapContent,
                             wrapContent,
                         )
-                        scaleX = 1f / 5f
-                        scaleY = 1f / 5f
                         isEnabled = false
                         isChecked = true
                     }
