@@ -11,6 +11,7 @@ import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import android.os.Build
 import android.provider.Settings
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -84,8 +85,6 @@ class UISwitch @JvmOverloads constructor(
         springToPosition(thumbRightAnimation, HoldEffectShift)
     }
     private var checkedInternal: Boolean = false
-
-    // 0f..1f
     private var thumbPosition = ThumpPosition(right = 0f, left = 0f)
         set(value) {
             field = value
@@ -225,48 +224,6 @@ class UISwitch @JvmOverloads constructor(
         return super.onTouchEvent(event)
     }
 
-    private fun springToPosition(animation: SpringAnimation, position: Float, bounce: Boolean = false) {
-        animation.apply {
-            spring = SpringForce(position).apply {
-                stiffness = getSpringStiffness()
-                dampingRatio = if (bounce) SpringBounceRatio else SpringNoBounce
-            }
-            start()
-        }
-    }
-
-    private fun getSpringStiffness(): Float {
-        return SpringStiffness / getSystemAnimationScale()
-    }
-
-    private fun getHoldEffectAnimationDelay(): Long {
-        return (HoldEffectAnimationDelay * getSystemAnimationScale()).roundToLong()
-    }
-
-    private fun getSystemAnimationScale(): Float {
-        return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
-    }
-
-    private fun snapToPosition(position: Float) {
-        thumbLeftAnimation.cancel()
-        thumbRightAnimation.cancel()
-        thumbLeftPositionValueHolder.value = position
-        thumbRightPositionValueHolder.value = position
-        trackTintFractionValueHolder.value = position
-    }
-
-    private fun cancelAllScheduledAnimations() {
-        handler?.run {
-            removeCallbacks(holdFromLeftEffect)
-            removeCallbacks(holdFromRightEffect)
-        }
-    }
-
-    private fun getDragToggleThreshold(isChecked: Boolean): Float {
-        val percent = if (isChecked) (1 - DragToggleThresholdPercent) else DragToggleThresholdPercent
-        return measuredWidth * percent
-    }
-
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val widthSpec = MeasureSpec.makeMeasureSpec((scale * Width.dp).roundToInt(), MeasureSpec.EXACTLY)
         val heightSpec = MeasureSpec.makeMeasureSpec((scale * Height.dp).roundToInt(), MeasureSpec.EXACTLY)
@@ -281,6 +238,13 @@ class UISwitch @JvmOverloads constructor(
         thumbMax = w - thumbOffset - thumbRadius
         invalidateThumbBounds()
         invalidateSpringMinVisibleChange()
+    }
+
+    @SuppressLint("MissingSuperCall")
+    override fun draw(canvas: Canvas) {
+        trackDrawable.draw(canvas)
+        thumb.draw(canvas)
+        drawDebug(canvas)
     }
 
     private fun invalidateSpringMinVisibleChange() {
@@ -302,15 +266,50 @@ class UISwitch @JvmOverloads constructor(
         invalidate()
     }
 
+    private fun springToPosition(animation: SpringAnimation, position: Float, bounce: Boolean = false) {
+        animation.apply {
+            spring = SpringForce(position).apply {
+                stiffness = getSpringStiffness()
+                dampingRatio = if (bounce) SpringBounceRatio else SpringNoBounce
+            }
+            start()
+        }
+    }
+
+    private fun snapToPosition(position: Float) {
+        thumbLeftAnimation.cancel()
+        thumbRightAnimation.cancel()
+        thumbLeftPositionValueHolder.value = position
+        thumbRightPositionValueHolder.value = position
+        trackTintFractionValueHolder.value = position
+    }
+
     private fun getThumbCenterPosition(fraction: Float): Float {
         return thumbMin + (thumbMax - thumbMin) * fraction
     }
 
-    @SuppressLint("MissingSuperCall")
-    override fun draw(canvas: Canvas) {
-        trackDrawable.draw(canvas)
-        thumb.draw(canvas)
-        drawDebug(canvas)
+    private fun getDragToggleThreshold(isChecked: Boolean): Float {
+        val percent = if (isChecked) (1 - DragToggleThresholdPercent) else DragToggleThresholdPercent
+        return measuredWidth * percent
+    }
+
+    private fun getSpringStiffness(): Float {
+        return SpringStiffness / getSystemAnimationScale()
+    }
+
+    private fun getHoldEffectAnimationDelay(): Long {
+        return (HoldEffectAnimationDelay * getSystemAnimationScale()).roundToLong()
+    }
+
+    private fun getSystemAnimationScale(): Float {
+        return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+    }
+
+    private fun cancelAllScheduledAnimations() {
+        handler?.run {
+            removeCallbacks(holdFromLeftEffect)
+            removeCallbacks(holdFromRightEffect)
+        }
     }
 
     private val debugPaint = Paint().apply {
@@ -348,9 +347,7 @@ class UISwitch @JvmOverloads constructor(
         override fun onBoundsChange(bounds: Rect) {
             radius = min(bounds.height(), bounds.width()) / 2f
             circleBounds.set(bounds)
-            val shadowRadius = bounds.height() * SHADOW_RADIUS_PERCENT
-            val shadowY = bounds.height() * SHADOW_Y_PERCENT
-            paint.setShadowLayer(shadowRadius, 0f, shadowY, shadowColor)
+            updateShadow(bounds)
         }
 
         override fun draw(canvas: Canvas) {
@@ -363,6 +360,17 @@ class UISwitch @JvmOverloads constructor(
 
         @Suppress("OVERRIDE_DEPRECATION")
         override fun getOpacity(): Int = PixelFormat.OPAQUE
+
+        override fun getConstantState(): ConstantState? = null
+
+        private fun updateShadow(bounds: Rect) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                return
+            }
+            val shadowRadius = bounds.height() * SHADOW_RADIUS_PERCENT
+            val shadowY = bounds.height() * SHADOW_Y_PERCENT
+            paint.setShadowLayer(shadowRadius, 0f, shadowY, shadowColor)
+        }
 
         companion object {
             private const val SHADOW_RADIUS_PERCENT = 0.09677f
