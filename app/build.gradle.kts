@@ -59,13 +59,12 @@ android {
                 "UnusedAttribute",
                 "NotifyDataSetChanged",
                 "ktNoinlineFunc",
-                "ClickableViewAccessibility",
             )
         )
     }
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.8.0")
+    implementation("androidx.core:core-ktx:1.9.0")
     implementation("androidx.dynamicanimation:dynamicanimation-ktx:1.0.0-alpha03")
 }
