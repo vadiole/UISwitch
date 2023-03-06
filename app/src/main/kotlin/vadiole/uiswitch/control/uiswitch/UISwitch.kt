@@ -35,6 +35,27 @@ class UISwitch @JvmOverloads constructor(
     defStyle: Int = 0,
     private val scale: Float = 1f,
 ) : View(context, attrs, defStyle), ResourcesOwner, Checkable {
+
+    companion object {
+        private const val Debug = true
+
+        private const val TouchModeIdle = 0
+        private const val TouchModeDown = 1
+        private const val TouchModeDragging = 2
+
+        private const val Width = 51
+        private const val Height = 31
+        private const val ThumbOffsetPercent = 0.0645f
+
+        private const val HoldEffectAnimationDelay = 60L
+        private const val SpringStiffness = 400f
+        private const val SpringNoBounce = 1f
+        private const val SpringBounceRatio = 0.75f
+        private const val HoldEffectShift = 0.33f
+        private const val CancelThresholdPercent = 0.5f
+        private const val DragToggleThresholdPercent = 0.6f
+    }
+
     private var thumbMin = 0f
     private var thumbMax = 0f
     private var thumbRadius = 0f
@@ -91,6 +112,7 @@ class UISwitch @JvmOverloads constructor(
             invalidateThumbBounds()
         }
     private var stateInternal: State = State.Unchecked.Default
+
     sealed class State {
         sealed class Checked : State() {
             object Default : Checked()
@@ -102,6 +124,50 @@ class UISwitch @JvmOverloads constructor(
             object Pressed : Unchecked()
         }
     }
+
+    class ThumbDrawable(thumbColor: Int, private val shadowColor: Int) : Drawable() {
+        private val paint = Paint().apply {
+            color = thumbColor
+            isAntiAlias = true
+        }
+        private val circleBounds = RectF()
+        private var radius = 0f
+
+        override fun onBoundsChange(bounds: Rect) {
+            radius = min(bounds.height(), bounds.width()) / 2f
+            circleBounds.set(bounds)
+            updateShadow(bounds)
+        }
+
+        override fun draw(canvas: Canvas) {
+            canvas.drawRoundRect(circleBounds, radius, radius, paint)
+        }
+
+        override fun setAlpha(alpha: Int) = Unit
+
+        override fun setColorFilter(colorFilter: ColorFilter?) = Unit
+
+        @Suppress("OVERRIDE_DEPRECATION")
+        override fun getOpacity(): Int = PixelFormat.OPAQUE
+
+        override fun getConstantState(): ConstantState? = null
+
+        private fun updateShadow(bounds: Rect) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                return
+            }
+            val shadowRadius = bounds.height() * SHADOW_RADIUS_PERCENT
+            val shadowY = bounds.height() * SHADOW_Y_PERCENT
+            paint.setShadowLayer(shadowRadius, 0f, shadowY, shadowColor)
+        }
+
+        companion object {
+            private const val SHADOW_RADIUS_PERCENT = 0.09677f
+            private const val SHADOW_Y_PERCENT = 0.09677f
+        }
+    }
+
+    class ThumpPosition(val right: Float, val left: Float)
 
     override fun isChecked(): Boolean = stateInternal is State.Checked
 
@@ -117,28 +183,6 @@ class UISwitch @JvmOverloads constructor(
         if (isAttachedToWindow && isLaidOut) {
             springToPosition(thumbRightAnimation, targetPosition, bounce = true)
             springToPosition(thumbLeftAnimation, targetPosition, bounce = true)
-            springToPosition(trackTintAnimation, targetPosition)
-        } else {
-            snapToPosition(targetPosition)
-        }
-    }
-
-    private fun setCheckedByDrag(checked: Boolean) {
-        cancelAllScheduledAnimations()
-        playSoundEffect(SoundEffectConstants.CLICK)
-        stateInternal = if (checked) State.Checked.Pressed else State.Unchecked.Pressed
-        wasToggledByDragging = true
-        val targetPosition = if (checked) 1f else 0f
-        val tailTargetPosition = if (checked) 1 - HoldEffectShift else HoldEffectShift
-
-        if (isAttachedToWindow && isLaidOut) {
-            if (isChecked) {
-                springToPosition(thumbRightAnimation, targetPosition, bounce = true)
-                springToPosition(thumbLeftAnimation, tailTargetPosition, bounce = true)
-            } else {
-                springToPosition(thumbRightAnimation, tailTargetPosition, bounce = true)
-                springToPosition(thumbLeftAnimation, targetPosition, bounce = true)
-            }
             springToPosition(trackTintAnimation, targetPosition)
         } else {
             snapToPosition(targetPosition)
@@ -273,6 +317,28 @@ class UISwitch @JvmOverloads constructor(
         invalidateSpringMinVisibleChange()
     }
 
+    private fun setCheckedByDrag(checked: Boolean) {
+        cancelAllScheduledAnimations()
+        playSoundEffect(SoundEffectConstants.CLICK)
+        stateInternal = if (checked) State.Checked.Pressed else State.Unchecked.Pressed
+        wasToggledByDragging = true
+        val targetPosition = if (checked) 1f else 0f
+        val tailTargetPosition = if (checked) 1 - HoldEffectShift else HoldEffectShift
+
+        if (isAttachedToWindow && isLaidOut) {
+            if (isChecked) {
+                springToPosition(thumbRightAnimation, targetPosition, bounce = true)
+                springToPosition(thumbLeftAnimation, tailTargetPosition, bounce = true)
+            } else {
+                springToPosition(thumbRightAnimation, tailTargetPosition, bounce = true)
+                springToPosition(thumbLeftAnimation, targetPosition, bounce = true)
+            }
+            springToPosition(trackTintAnimation, targetPosition)
+        } else {
+            snapToPosition(targetPosition)
+        }
+    }
+
     @SuppressLint("MissingSuperCall")
     override fun draw(canvas: Canvas) {
         trackDrawable.draw(canvas)
@@ -368,69 +434,5 @@ class UISwitch @JvmOverloads constructor(
         val thumbCenterY = measuredHeight / 2f
         canvas.drawCircle(thumbCenterLeftX, thumbCenterY, 2f.dp, debugPaint)
         canvas.drawCircle(thumbCenterRightX, thumbCenterY, 2f.dp, debugPaint)
-    }
-
-    class ThumbDrawable(thumbColor: Int, private val shadowColor: Int) : Drawable() {
-        private val paint = Paint().apply {
-            color = thumbColor
-            isAntiAlias = true
-        }
-        private val circleBounds = RectF()
-        private var radius = 0f
-
-        override fun onBoundsChange(bounds: Rect) {
-            radius = min(bounds.height(), bounds.width()) / 2f
-            circleBounds.set(bounds)
-            updateShadow(bounds)
-        }
-
-        override fun draw(canvas: Canvas) {
-            canvas.drawRoundRect(circleBounds, radius, radius, paint)
-        }
-
-        override fun setAlpha(alpha: Int) = Unit
-
-        override fun setColorFilter(colorFilter: ColorFilter?) = Unit
-
-        @Suppress("OVERRIDE_DEPRECATION")
-        override fun getOpacity(): Int = PixelFormat.OPAQUE
-
-        override fun getConstantState(): ConstantState? = null
-
-        private fun updateShadow(bounds: Rect) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                return
-            }
-            val shadowRadius = bounds.height() * SHADOW_RADIUS_PERCENT
-            val shadowY = bounds.height() * SHADOW_Y_PERCENT
-            paint.setShadowLayer(shadowRadius, 0f, shadowY, shadowColor)
-        }
-
-        companion object {
-            private const val SHADOW_RADIUS_PERCENT = 0.09677f
-            private const val SHADOW_Y_PERCENT = 0.09677f
-        }
-    }
-
-    class ThumpPosition(val right: Float, val left: Float)
-
-    companion object {
-        private const val Debug = true
-
-        private const val TouchModeIdle = 0
-        private const val TouchModeDown = 1
-        private const val TouchModeDragging = 2
-
-        private const val Width = 51
-        private const val Height = 31
-        private const val ThumbOffsetPercent = 0.0645f
-
-        private const val HoldEffectAnimationDelay = 60L
-        private const val SpringStiffness = 400f
-        private const val SpringNoBounce = 1f
-        private const val SpringBounceRatio = 0.75f
-        private const val HoldEffectShift = 0.33f
-        private const val CancelThresholdPercent = 0.5f
-        private const val DragToggleThresholdPercent = 0.6f
     }
 }
