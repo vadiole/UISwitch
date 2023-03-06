@@ -44,7 +44,6 @@ class UISwitch @JvmOverloads constructor(
     private var wasToggledByDragging = false
     private val config = ViewConfiguration.get(context)
     private val touchSlop = config.scaledTouchSlop
-    private val minFlingVelocity = config.scaledMinimumFlingVelocity
     private val argbEvaluator = ArgbEvaluator()
     private var trackTintFraction = 0f
     private val thumbShadowColor = context.getColor(R.color.shadow)
@@ -79,19 +78,32 @@ class UISwitch @JvmOverloads constructor(
     private val thumbLeftAnimation = SpringAnimation(thumbLeftPositionValueHolder)
     private val trackTintAnimation = SpringAnimation(trackTintFractionValueHolder)
     private val holdFromRightEffect = Runnable {
+        stateInternal = State.Checked.Pressed
         springToPosition(thumbLeftAnimation, 1 - HoldEffectShift)
     }
     private val holdFromLeftEffect = Runnable {
+        stateInternal = State.Unchecked.Pressed
         springToPosition(thumbRightAnimation, HoldEffectShift)
     }
-    private var checkedInternal: Boolean = false
     private var thumbPosition = ThumpPosition(right = 0f, left = 0f)
         set(value) {
             field = value
             invalidateThumbBounds()
         }
+    private var stateInternal: State = State.Unchecked.Default
+    sealed class State {
+        sealed class Checked : State() {
+            object Default : Checked()
+            object Pressed : Checked()
+        }
 
-    override fun isChecked(): Boolean = checkedInternal
+        sealed class Unchecked : State() {
+            object Default : Unchecked()
+            object Pressed : Unchecked()
+        }
+    }
+
+    override fun isChecked(): Boolean = stateInternal is State.Checked
 
     override fun toggle() {
         isChecked = !isChecked
@@ -99,7 +111,7 @@ class UISwitch @JvmOverloads constructor(
 
     override fun setChecked(checked: Boolean) {
         cancelAllScheduledAnimations()
-        checkedInternal = checked
+        stateInternal = if (checked) State.Checked.Default else State.Unchecked.Default
         val targetPosition = if (checked) 1f else 0f
 
         if (isAttachedToWindow && isLaidOut) {
@@ -114,7 +126,7 @@ class UISwitch @JvmOverloads constructor(
     private fun setCheckedByDrag(checked: Boolean) {
         cancelAllScheduledAnimations()
         playSoundEffect(SoundEffectConstants.CLICK)
-        checkedInternal = checked
+        stateInternal = if (checked) State.Checked.Pressed else State.Unchecked.Pressed
         wasToggledByDragging = true
         val targetPosition = if (checked) 1f else 0f
         val tailTargetPosition = if (checked) 1 - HoldEffectShift else HoldEffectShift
@@ -181,12 +193,28 @@ class UISwitch @JvmOverloads constructor(
                     TouchModeDragging -> {
                         val dragToggleThreshold = getDragToggleThreshold(isChecked)
                         if (isChecked) {
-                            if (event.x < dragToggleThreshold) {
-                                setCheckedByDrag(!isChecked)
+                            when {
+                                event.x < dragToggleThreshold -> {
+                                    setCheckedByDrag(!isChecked)
+                                }
+                                event.x > measuredWidth && stateInternal != State.Checked.Default -> {
+                                    isChecked = isChecked
+                                }
+                                event.x < measuredWidth && stateInternal != State.Checked.Pressed -> {
+                                    holdFromRightEffect.run()
+                                }
                             }
                         } else {
-                            if (event.x > dragToggleThreshold) {
-                                setCheckedByDrag(!isChecked)
+                            when {
+                                event.x > dragToggleThreshold -> {
+                                    setCheckedByDrag(!isChecked)
+                                }
+                                event.x < 0 && stateInternal != State.Unchecked.Default -> {
+                                    isChecked = isChecked
+                                }
+                                event.x > 0 && stateInternal != State.Unchecked.Pressed -> {
+                                    holdFromLeftEffect.run()
+                                }
                             }
                         }
                         return true
@@ -203,17 +231,22 @@ class UISwitch @JvmOverloads constructor(
                         return true
                     }
                     TouchModeDragging -> {
-                        val dragBackThreshold = measuredWidth * DragBackThresholdPercent
-                        val isCancelledToLeft = !isChecked && event.x < -dragBackThreshold
-                        val isCancelledToRight = isChecked && event.x > measuredWidth + dragBackThreshold
-                        val isToggleDone = !isCancelledToLeft && !isCancelledToRight
+                        val cancelThreshold = measuredWidth * CancelThresholdPercent
+                        val isCancelledToLeft = !isChecked && event.x < -cancelThreshold
+                        val isCancelledToRight = isChecked && event.x > measuredWidth + cancelThreshold
 
-                        if (isToggleDone && !wasToggledByDragging) {
-                            wasToggledByDragging = false
-                            toggle()
-                            playSoundEffect(SoundEffectConstants.CLICK)
-                        } else {
-                            isChecked = isChecked
+                        when {
+                            wasToggledByDragging -> {
+                                wasToggledByDragging = false
+                                isChecked = isChecked
+                            }
+                            isCancelledToLeft || isCancelledToRight -> {
+                                isChecked = isChecked
+                            }
+                            else -> {
+                                toggle()
+                                playSoundEffect(SoundEffectConstants.CLICK)
+                            }
                         }
                         touchMode = TouchModeIdle
                         return true
@@ -325,6 +358,7 @@ class UISwitch @JvmOverloads constructor(
     }
 
     private fun drawDebug(canvas: Canvas) {
+        if (!Debug) return
         canvas.drawLine(thumbMin, 0f, thumbMin, measuredHeight.toFloat(), debugPaintGray)
         canvas.drawLine(thumbMax, 0f, thumbMax, measuredHeight.toFloat(), debugPaintGray)
         val dragToggleThreshold = getDragToggleThreshold(isChecked)
@@ -381,13 +415,14 @@ class UISwitch @JvmOverloads constructor(
     class ThumpPosition(val right: Float, val left: Float)
 
     companion object {
+        private const val Debug = true
+
         private const val TouchModeIdle = 0
         private const val TouchModeDown = 1
         private const val TouchModeDragging = 2
 
-        private const val Mult = 1
-        private const val Width = 51 * Mult
-        private const val Height = 31 * Mult
+        private const val Width = 51
+        private const val Height = 31
         private const val ThumbOffsetPercent = 0.0645f
 
         private const val HoldEffectAnimationDelay = 60L
@@ -395,7 +430,7 @@ class UISwitch @JvmOverloads constructor(
         private const val SpringNoBounce = 1f
         private const val SpringBounceRatio = 0.75f
         private const val HoldEffectShift = 0.33f
-        private const val DragBackThresholdPercent = 0.5f
+        private const val CancelThresholdPercent = 0.5f
         private const val DragToggleThresholdPercent = 0.6f
     }
 }
